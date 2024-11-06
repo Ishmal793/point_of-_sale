@@ -788,4 +788,3 @@ elif options == "Discount Effectiveness Analysis":
         template='plotly_dark'
     )
     st.plotly_chart(fig_discount_profit_margin)
-    
