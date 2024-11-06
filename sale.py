@@ -4,7 +4,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 # Load data
-file_path = 'superstore.xlsx'
+file_path ='superstore.xlsx'
 df = pd.read_excel(file_path, sheet_name='superstore_dataset')
 
 # Function to load default data
@@ -149,19 +149,6 @@ if options == "Overall Overview":
         st.plotly_chart(fig_profit, use_container_width=True)
 
     with col3:
-        fig_discount = go.Figure(go.Indicator(
-            mode="gauge+number",
-            value=total_discount,
-            title={'text': "Total Discount"},
-            gauge={'axis': {'range': [0, total_discount * 1.2]},
-                   'bar': {'color': "orange"}}
-        ))
-        fig_discount.update_layout(margin=dict(t=10, b=10, l=10, r=10))
-        st.plotly_chart(fig_discount, use_container_width=True)
-
-    # Second row of metrics
-    col4, col5, col6 = st.columns(3)
-    with col4:
         fig_quantity = go.Figure(go.Indicator(
             mode="gauge+number",
             value=total_quantity,
@@ -171,6 +158,22 @@ if options == "Overall Overview":
         ))
         fig_quantity.update_layout(margin=dict(t=10, b=10, l=10, r=10))
         st.plotly_chart(fig_quantity, use_container_width=True)
+
+
+    # Second row of metrics
+    col4, col5, col6 = st.columns(3)
+    with col4:
+        fig_margin = go.Figure(go.Indicator(
+            mode="gauge+number",
+            value=avg_profit_margin,
+            title={'text': "Average Profit Margin (%)"},
+            gauge={'axis': {'range': [0, avg_profit_margin * 1.2]},
+                   'bar': {'color': "red"}}
+        ))
+        fig_margin.update_layout(margin=dict(t=10, b=10, l=10, r=10))
+        st.plotly_chart(fig_margin, use_container_width=True)
+    # First Plot: Total Sales by Region
+
 
     with col5:
         fig_rows = go.Figure(go.Indicator(
@@ -183,16 +186,8 @@ if options == "Overall Overview":
         fig_rows.update_layout(margin=dict(t=10, b=10, l=10, r=10))
         st.plotly_chart(fig_rows, use_container_width=True)
 
-    with col6:
-        fig_margin = go.Figure(go.Indicator(
-            mode="gauge+number",
-            value=avg_profit_margin,
-            title={'text': "Average Profit Margin (%)"},
-            gauge={'axis': {'range': [0, avg_profit_margin * 1.2]},
-                   'bar': {'color': "red"}}
-        ))
-        fig_margin.update_layout(margin=dict(t=10, b=10, l=10, r=10))
-        st.plotly_chart(fig_margin, use_container_width=True)
+
+
     # First Plot: Total Sales by Region
     st.subheader("Total Sales by Region")
 
@@ -271,43 +266,33 @@ elif options == "Sales by Product Category":
         'profit': 'sum'
     }).reset_index()
 
-    # First Chart: Total Sales by Product Category (Bar Chart)
-    fig_sales = px.bar(
-        category_sales_profit,
+
+    # Group data by 'category' and 'product_name' to calculate aggregate metrics
+    product_category_margin = filtered_df.groupby(['category', 'product_name']).agg({
+        'sales': 'sum',
+        'profit': 'sum',
+        'profit_margin': 'mean'
+    }).reset_index()
+
+    # Bar Chart: Total Sales by Product Category
+    fig_sales_bar = px.bar(
+        product_category_margin,
         x='category',
         y='sales',
-        title='Total Sales by Product Category',
-        labels={'category': 'Product Category', 'sales': 'Total Sales'},
         color='category',
-        color_discrete_sequence=px.colors.qualitative.T10
+        title="Total Sales by Product Category",
+        labels={'category': 'Product Category', 'sales': 'Total Sales'},
+        hover_name='product_name'
     )
-    fig_sales.update_layout(
+    fig_sales_bar.update_layout(
         xaxis_title='Product Category',
         yaxis_title='Total Sales',
         title_x=0.5,
-        template='plotly_dark',
-
-
-    )
-    st.plotly_chart(fig_sales)
-
-    # Second Chart: Profit by Product Category (Bar Chart)
-    fig_profit = px.bar(
-        category_sales_profit,
-        x='category',
-        y='profit',
-        title='Total Profit by Product Category',
-        labels={'category': 'Product Category', 'profit': 'Total Profit'},
-        color='category',
-        color_discrete_sequence=px.colors.qualitative.T10
-    )
-    fig_profit.update_layout(
-        xaxis_title='Product Category',
-        yaxis_title='Total Profit',
-        title_x=0.5,
         template='plotly_dark'
     )
-    st.plotly_chart(fig_profit)
+    st.plotly_chart(fig_sales_bar)
+
+
 
     # Combined Chart: Scatter plot for comparing Sales and Profit
     fig_combined = px.scatter(
@@ -364,34 +349,11 @@ elif options == "Sales by Product Category":
     )
     st.plotly_chart(fig_yearly_sales)
 
-    # Chart 2: Yearly Profit by Product Category
-    fig_yearly_profit = px.line(
-        yearly_category_sales_profit,
-        x='year',
-        y='profit',
-        color='category',
-        title='Yearly Profit by Product Category',
-        labels={'year': 'Year', 'profit': 'Total Profit'},
-        markers=True,
-        color_discrete_sequence=px.colors.qualitative.T10
-    )
-    fig_yearly_profit.update_layout(
-        xaxis_title='Year',
-        yaxis_title='Total Profit',
-        title_x=0.5,
-        template='plotly_dark'
-    )
-    st.plotly_chart(fig_yearly_profit)
 
 
 # Daily & Hourly Sales Trend
 elif options == "Daily & Hourly Sales Trend":
     st.header("Daily and Hourly Sales Trend")
-
-    # Display top 5 customers by sales
-    st.subheader("Top 5 Customers by Sales")
-    top_customers = filtered_df.groupby('customer')['sales'].sum().nlargest(5).reset_index()
-    st.dataframe(top_customers)
 
     # Select visualization level (day-wise or hour-wise)
     time_visualization = st.radio("Select Time-based Visualization", ("Day-wise", "Hour-wise"))
@@ -490,157 +452,234 @@ elif options=="Customer Sales Analytics":
 
 # Inventory Turnover Rate (ITR)
 elif options == "Inventory Turnover Rate":
-    # Header
-    st.header("Inventory Turnover Rate (ITR) Analysis")
 
-    # Calculate Inventory Turnover Rate (ITR)
-    average_inventory = 100  # Placeholder; adjust based on actual data
-    itr_data = df.groupby('product_name')['sales'].sum().reset_index()
-    itr_data['ITR'] = itr_data['sales'] / average_inventory
+    # Radio button to select Top or Bottom view
+    view_type = st.radio("Select View Type:", options=["Top 5", "Bottom 5"])
 
-    # Split ITR data into fast-moving and slow-moving products
-    threshold = itr_data['ITR'].mean()  # Define a threshold based on average ITR
-    fast_moving = itr_data[itr_data['ITR'] > threshold].sort_values(by='ITR', ascending=False)
-    slow_moving = itr_data[itr_data['ITR'] <= threshold].sort_values(by='ITR', ascending=True)
+    # Radio button to select the metric to sort by
+    sort_metric = st.radio("Sort by:", options=["sales", "profit", "quantity"])
 
-    # Display fast-moving products
-    st.subheader("Fast-Moving Products")
-    st.write("These products have high inventory turnover rates, indicating frequent sales.")
-    st.dataframe(fast_moving[['product_name', 'sales', 'ITR']])
+    # Determine if we should show the top or bottom 5 based on selected metric
+    if view_type == "Top 5":
+        product_table = filtered_df.nlargest(5, sort_metric)[
+            ['category', 'product_name', 'sales', 'profit', 'quantity']]
+    else:
+        product_table = filtered_df.nsmallest(5, sort_metric)[
+            ['category', 'product_name', 'sales', 'profit', 'quantity']]
 
-    # Bar chart for fast-moving products with product names on the y-axis
-    fig_fast_moving = px.bar(
-        fast_moving,
-        y='product_name',
-        x='ITR',
-        title="Inventory Turnover Rate for Fast-Moving Products",
-        labels={'ITR': 'Inventory Turnover Rate (ITR)', 'product_name': 'Product'},
-        color='ITR',
-        color_continuous_scale='Teal'
-    )
-    fig_fast_moving.update_layout(
-        yaxis_title='Product',
-        xaxis_title='ITR',
-        title_x=0.5,
-        template='plotly_white'
-    )
-    st.plotly_chart(fig_fast_moving)
+    # Display the resulting table
+    st.subheader(f"{view_type} Products by {sort_metric.capitalize()}")
+    st.write(product_table)
 
-    # Display slow-moving products
-    st.subheader("Slow-Moving Products")
-    st.write("These products have low inventory turnover rates, indicating slow sales.")
-    st.dataframe(slow_moving[['product_name', 'sales', 'ITR']])
 
-    # Bar chart for slow-moving products with product names on the y-axis
-    fig_slow_moving = px.bar(
-        slow_moving,
-        y='product_name',
-        x='ITR',
-        title="Inventory Turnover Rate for Slow-Moving Products",
-        labels={'ITR': 'Inventory Turnover Rate (ITR)', 'product_name': 'Product'},
-        color='ITR',
-        color_continuous_scale='OrRd'
-    )
-    fig_slow_moving.update_layout(
-        yaxis_title='Product',
-        xaxis_title='ITR',
-        title_x=0.5,
-        template='plotly_white'
-    )
-    st.plotly_chart(fig_slow_moving)
 
-    # Summary table
-    st.subheader("Inventory Turnover Summary")
-    summary_table = itr_data.copy()
-    summary_table['Status'] = summary_table['ITR'].apply(lambda x: 'Fast-Moving' if x > threshold else 'Slow-Moving')
-    st.dataframe(summary_table[['product_name', 'sales', 'ITR', 'Status']])
 
-    # Pie chart for summary visualization
-    status_counts = summary_table['Status'].value_counts().reset_index()
-    status_counts.columns = ['Status', 'Count']
-    fig_status_pie = px.pie(
-        status_counts,
-        names='Status',
-        values='Count',
-        title="Proportion of Fast- and Slow-Moving Products",
-        color='Status',
-        color_discrete_map={'Fast-Moving': 'green', 'Slow-Moving': 'red'}
-    )
-    fig_status_pie.update_traces(
-        textposition='inside',
-        textinfo='percent+label'
-    )
-    st.plotly_chart(fig_status_pie)
+    # 2. Inventory Turnover Rate Analysis
+    if options == "Inventory Turnover Rate":
+        st.header("Inventory Turnover Rate Analysis")
+
+        # Calculate inventory turnover rate by category
+        category_turnover = filtered_df.groupby('category').agg({
+            'sales': 'sum',
+            'profit': 'sum',
+            'quantity': 'sum'
+        }).reset_index()
+        category_turnover['turnover_rate'] = category_turnover['sales'] / category_turnover['quantity']
+
+        # Bar chart for Inventory Turnover Rate by Product Category
+        fig_turnover = px.bar(
+            category_turnover,
+            x='category',
+            y='turnover_rate',
+            title='Inventory Turnover Rate by Product Category',
+            labels={'category': 'Product Category', 'turnover_rate': 'Inventory Turnover Rate'},
+            color='category'
+        )
+        st.plotly_chart(fig_turnover)
+
+
+
+        # Quality (Quantity) vs. Sales/Profit by Category
+        fig_quality_sales = px.scatter(
+            category_turnover,
+            x='quantity',
+            y='sales',
+            color='category',
+            size='sales',
+            title="Quality (Quantity) vs Sales by Product Category",
+            labels={'quantity': 'Quality (Quantity)', 'sales': 'Total Sales'},
+        )
+        st.plotly_chart(fig_quality_sales)
+
+        fig_quality_profit = px.scatter(
+            category_turnover,
+            x='quantity',
+            y='profit',
+            color='category',
+            size='profit',
+            title="Quality (Quantity) vs Profit by Product Category",
+            labels={'quantity': 'Quality (Quantity)', 'profit': 'Total Profit'},
+        )
+        st.plotly_chart(fig_quality_profit)
+
+
 # Profit Margin by Product and Category
 elif options == "Profit Margin by Product and Category":
-    # Section: Profit Margin Analysis by Product and Category
+
+
     st.header("Profit Margin Analysis by Product and Category")
 
-    # Calculate profit margin as a percentage
-    filtered_df['profit_margin'] = (filtered_df['profit'] / filtered_df['sales']) * 100
+    # Radio button to toggle between Top and Bottom 5 products by Profit Margin
+    view_type = st.radio("Select View Type:", options=["Top 5", "Bottom 5"])
 
-    # Group by category and product to calculate average profit margin
-    category_product_margin = filtered_df.groupby(['category', 'product_name'])['profit_margin'].mean().reset_index()
+    # Group data by 'category' and 'product_name' to calculate aggregate metrics
+    product_category_margin = filtered_df.groupby(['category', 'product_name']).agg({
+        'sales': 'sum',
+        'profit': 'sum',
+        'profit_margin': 'mean'
+    }).reset_index()
 
-    # Toggle to view top 5 and bottom 5 products by profit margin
-    margin_toggle = st.radio("Select Margin View", ("High Margin Products", "Low Margin Products"))
+    # Determine top or bottom 5 products based on profit margin
+    if view_type == "Top 5":
+        top_bottom_products = product_category_margin.nlargest(5, 'profit_margin')[
+            ['category', 'product_name', 'sales', 'profit', 'profit_margin']]
+    else:
+        top_bottom_products = product_category_margin.nsmallest(5, 'profit_margin')[
+            ['category', 'product_name', 'sales', 'profit', 'profit_margin']]
 
-    # Define colors for categories (you can customize these colors as needed)
-    category_colors = {
-        "Category 1": "rgb(66, 135, 245)",  # Example color for Category 1
-        "Category 2": "rgb(245, 66, 66)",  # Example color for Category 2
-        "Category 3": "rgb(66, 245, 173)",  # Example color for Category 3
-        "Category 4": "rgb(245, 221, 66)",  # Example color for Category 4
-        # Add more colors for each category as needed
-    }
+    # Display the resulting table with category, product name, sales, profit, and profit margin
+    st.subheader(f"{view_type} Products by Profit Margin")
+    st.write(top_bottom_products)
 
-    if margin_toggle == "High Margin Products":
-        # Top 5 High Margin Products per Category
-        st.subheader("High Margin Products per Category")
-        top_margin_products = category_product_margin.groupby('category').apply(
-            lambda x: x.nlargest(5, 'profit_margin')).reset_index(drop=True)
+    # Group data by 'category' and 'product_name' to calculate aggregate metrics
+    product_category_margin = filtered_df.groupby(['category', 'product_name']).agg({
+        'sales': 'sum',
+        'profit': 'sum',
+        'profit_margin': 'mean'
+    }).reset_index()
 
-        # Display in table format
-        st.dataframe(top_margin_products)
+    # Scatter plot: Profit Margin vs Sales by Product Category
+    fig_margin_sales = px.scatter(
+        product_category_margin,
+        x='profit_margin',
+        y='sales',
+        color='category',
+        size=product_category_margin['sales'].abs(),  # Absolute values to avoid negative sizes
+        title="Profit Margin vs Sales by Product Category",
+        labels={'profit_margin': 'Profit Margin', 'sales': 'Total Sales'},
+        hover_name='product_name'
+    )
+    fig_margin_sales.update_layout(
+        xaxis_title='Profit Margin',
+        yaxis_title='Total Sales',
+        title_x=0.5,
+        template='plotly_dark'
+    )
+    st.plotly_chart(fig_margin_sales)
 
-        # Bar chart for top 5 high-margin products per category
-        fig_top_margin = px.bar(
-            top_margin_products,
-            x='profit_margin',
-            y='product_name',
-            color='category',
-            title="High Margin Products by Category",
-            labels={'profit_margin': 'Profit Margin (%)', 'product_name': 'Product'},
-            orientation='h',
-            color_discrete_map=category_colors  # Assign colors based on category
-        )
-        fig_top_margin.update_layout(xaxis_title='Profit Margin (%)', yaxis_title='Product', title_x=0.5,
-                                     template='plotly_white')
-        st.plotly_chart(fig_top_margin)
+    # Scatter plot: Profit Margin vs Profit by Product Category
+    fig_margin_profit = px.scatter(
+        product_category_margin,
+        x='profit_margin',
+        y='profit',
+        color='category',
+        size=product_category_margin['profit'].abs(),  # Absolute values for size
+        title="Profit Margin vs Profit by Product Category",
+        labels={'profit_margin': 'Profit Margin', 'profit': 'Total Profit'},
+        hover_name='product_name'
+    )
+    fig_margin_profit.update_layout(
+        xaxis_title='Profit Margin',
+        yaxis_title='Total Profit',
+        title_x=0.5,
+        template='plotly_dark'
+    )
+    st.plotly_chart(fig_margin_profit)
 
-    elif margin_toggle == "Low Margin Products":
-        # Bottom 5 Low Margin Products per Category
-        st.subheader("Low Margin Products per Category")
-        bottom_margin_products = category_product_margin.groupby('category').apply(
-            lambda x: x.nsmallest(5, 'profit_margin')).reset_index(drop=True)
+    # Bar Chart: Total Sales by Product Category
+    fig_sales_bar = px.bar(
+        product_category_margin,
+        x='category',
+        y='sales',
+        color='category',
+        title="Total Sales by Product Category",
+        labels={'category': 'Product Category', 'sales': 'Total Sales'},
+        hover_name='product_name'
+    )
+    fig_sales_bar.update_layout(
+        xaxis_title='Product Category',
+        yaxis_title='Total Sales',
+        title_x=0.5,
+        template='plotly_dark'
+    )
+    st.plotly_chart(fig_sales_bar)
 
-        # Display in table format
-        st.dataframe(bottom_margin_products)
+    # Bar Chart: Total Profit by Product Category
+    fig_profit_bar = px.bar(
+        product_category_margin,
+        x='category',
+        y='profit',
+        color='category',
+        title="Total Profit by Product Category",
+        labels={'category': 'Product Category', 'profit': 'Total Profit'},
+        hover_name='product_name'
+    )
+    fig_profit_bar.update_layout(
+        xaxis_title='Product Category',
+        yaxis_title='Total Profit',
+        title_x=0.5,
+        template='plotly_dark'
+    )
+    st.plotly_chart(fig_profit_bar)
 
-        # Bar chart for top 5 low-margin products per category
-        fig_bottom_margin = px.bar(
-            bottom_margin_products,
-            x='profit_margin',
-            y='product_name',
-            color='category',
-            title="Low Margin Products by Category",
-            labels={'profit_margin': 'Profit Margin (%)', 'product_name': 'Product'},
-            orientation='h',
-            color_discrete_map=category_colors  # Assign colors based on category
-        )
-        fig_bottom_margin.update_layout(xaxis_title='Profit Margin (%)', yaxis_title='Product', title_x=0.5,
-                                        template='plotly_white')
-        st.plotly_chart(fig_bottom_margin)
+    # Bar Chart: Average Profit Margin by Product Category
+    fig_margin_bar = px.bar(
+        product_category_margin,
+        x='category',
+        y='profit_margin',
+        color='category',
+        title="Average Profit Margin by Product Category",
+        labels={'category': 'Product Category', 'profit_margin': 'Average Profit Margin'},
+        hover_name='product_name'
+    )
+    fig_margin_bar.update_layout(
+        xaxis_title='Product Category',
+        yaxis_title='Average Profit Margin',
+        title_x=0.5,
+        template='plotly_dark'
+    )
+    st.plotly_chart(fig_margin_bar)
+    # Now extract the year and month
+    filtered_df['year'] = filtered_df['order_date'].dt.year
+    filtered_df['month'] = filtered_df['order_date'].dt.month
+
+    # Proceed with aggregating data for yearly sales and profit by product category
+    yearly_category_sales_profit = filtered_df.groupby(['year', 'category']).agg({
+        'sales': 'sum',
+        'profit': 'sum'
+    }).reset_index()
+
+    # Chart 2: Yearly Profit by Product Category
+    fig_yearly_profit = px.line(
+        yearly_category_sales_profit,
+        x='year',
+        y='profit',
+        color='category',
+        title='Yearly Profit by Product Category',
+        labels={'year': 'Year', 'profit': 'Total Profit'},
+        markers=True,
+        color_discrete_sequence=px.colors.qualitative.T10
+    )
+    fig_yearly_profit.update_layout(
+        xaxis_title='Year',
+        yaxis_title='Total Profit',
+        title_x=0.5,
+        template='plotly_dark'
+    )
+    st.plotly_chart(fig_yearly_profit)
+
+
+
 
 
 # Discount Effectiveness Analysis
@@ -722,4 +761,31 @@ elif options == "Discount Effectiveness Analysis":
         template='plotly_dark'
     )
     st.plotly_chart(fig_discount_range_sales_profit)
+    # Aggregate data by 'category', 'product_name', and 'discount'
+    discount_analysis = filtered_df.groupby(['category', 'product_name', 'discount']).agg({
+        'sales': 'sum',
+        'profit': 'sum',
+        'profit_margin': 'mean'
+    }).reset_index()
 
+    # Scatter Plot: Discount vs. Profit Margin by Product Category
+    fig_discount_profit_margin = px.scatter(
+        discount_analysis,
+        x='discount',
+        y='profit_margin',
+        color='category',
+        size=discount_analysis['sales'].abs(),  # Absolute value for size
+        title="Discount vs Profit Margin by Product Category",
+        labels={'discount': 'Discount (%)', 'profit_margin': 'Profit Margin'},
+        hover_name='product_name',
+        size_max=20,
+        color_discrete_sequence=px.colors.qualitative.Set1
+    )
+    fig_discount_profit_margin.update_layout(
+        xaxis_title='Discount (%)',
+        yaxis_title='Profit Margin',
+        title_x=0.5,
+        template='plotly_dark'
+    )
+    st.plotly_chart(fig_discount_profit_margin)
+    
